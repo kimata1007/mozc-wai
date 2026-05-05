@@ -1,0 +1,72 @@
+# tag push を契機に WritingAssistantIME 用の libmozc_wai.a + 辞書 tarball をビルドし、
+# GitHub Releases にアップロードする。
+#
+# 設計書: <owner>/WritingAssistantIME docs/design-doc/202605-006_mozc-integration §2.5.5
+#
+# 現状はスケルトン段階。upstream の visibility 修正と
+# cc_static_library の有効化が済むまで artifact upload は無効化している。
+
+name: Build and Release WritingAssistantIME Mozc artifact
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Restore update_deps cache
+        uses: actions/cache@v5
+        with:
+          path: src/third_party_cache
+          key: update_deps-macos-skeleton
+
+      - name: Resolve Mozc third-party deps
+        working-directory: ./src
+        run: |
+          python3 build_tools/update_deps.py
+
+      - name: Smoke check (skeleton phase)
+        working-directory: ./src
+        run: |
+          bazelisk info workspace
+          bazelisk query //wai:all
+          echo "Skeleton CI ran. Real artifacts wired up in the next iteration."
+
+      # TODO(W1-B): visibility パッチ適用 + cc_static_library 有効化後にこのステップを使う
+      - name: Build static library
+        if: false
+        working-directory: ./src
+        run: |
+          bazelisk build //wai:libmozc_wai --macos_cpus=arm64 --config release_build
+
+      # TODO(W1-B): 辞書ファイル群を tar.gz に固める
+      - name: Package dictionary
+        if: false
+        working-directory: ./src
+        run: |
+          bazelisk build //data/dictionary_oss:dictionary_files --config release_build
+          tar czf dictionary.tar.gz -C bazel-bin/data/dictionary_oss .
+
+      # TODO(W1-B): 実際にビルドが通ったら有効化
+      - name: Upload to Release
+        if: false
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src/bazel-bin/wai/libmozc_wai.a
+            src/dictionary.tar.gz
