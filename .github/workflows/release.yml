@@ -78,6 +78,9 @@ jobs:
           mkdir -p ../release-artifacts
           cp libmozc_wai.a ../release-artifacts/
           tar czf ../release-artifacts/dictionary.tar.gz -C bazel-bin/data_manager/oss mozc.data
+          # BSD-3-Clause の binary 再配布要件を満たすため LICENSE と NOTICE を同梱。
+          cp ../LICENSE ../release-artifacts/LICENSE
+          cp wai/NOTICE.txt ../release-artifacts/NOTICE.txt
           ls -lh ../release-artifacts/
 
       - name: Upload to Release
@@ -87,6 +90,8 @@ jobs:
           files: |
             release-artifacts/libmozc_wai.a
             release-artifacts/dictionary.tar.gz
+            release-artifacts/LICENSE
+            release-artifacts/NOTICE.txt
 
       - name: Upload as workflow artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}

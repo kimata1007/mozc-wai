@@ -1,0 +1,43 @@
+WritingAssistantIME Mozc artifact
+=================================
+
+This release contains binary artifacts built from kimata1007/mozc-wai,
+which is a fork of github.com/google/mozc.
+
+Contents
+--------
+
+- libmozc_wai.a
+    Static archive aggregating the Mozc conversion engine (session,
+    engine, converter, data_manager/oss) for use with the
+    WritingAssistantIME (`<owner>/WritingAssistantIME`) macOS IME.
+    Built for Apple Silicon (arm64) with `--config release_build`.
+
+- dictionary.tar.gz
+    Contains `mozc.data`, the unified runtime dataset produced by
+    `//data_manager/oss:mozc_dataset_for_oss`.
+
+License
+-------
+
+Mozc is licensed under the 3-Clause BSD License. See the bundled
+LICENSE file for the full text. Copyright 2010-2018, Google Inc.
+
+Modifications in kimata1007/mozc-wai
+------------------------------------
+
+- Added `src/wai/BUILD.bazel`: aggregator package that depends on
+  //session, //engine:oss_engine_factory, //converter, and
+  //data_manager/oss:oss_data_manager.
+- Added `.github/workflows/release.yml`: macOS arm64 build pipeline
+  that produces libmozc_wai.a and dictionary.tar.gz.
+- Extended visibility on //session:session, //engine:oss_engine_factory,
+  and //converter:converter to allow //wai:__pkg__ to depend on them.
+
+No source code of Mozc itself was modified; only the build graph was
+extended.
+
+Source
+------
+
+https://github.com/kimata1007/mozc-wai
