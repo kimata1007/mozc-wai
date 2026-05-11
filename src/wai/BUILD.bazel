@@ -1,9 +1,6 @@
 # WritingAssistantIME 用の集約 Bazel ターゲット。
 #
 # 設計書: <owner>/WritingAssistantIME docs/design-doc/202605-006_mozc-integration §2.5
-#
-# upstream の対応 package の visibility に `//wai:__pkg__` を足すのは
-# 別 commit で行う（merge 時の差分を最小に保つため）。
 
 load("//:build_defs.bzl", "mozc_cc_library")
 
@@ -16,9 +13,7 @@ package(default_visibility = ["//visibility:public"])
 #   - Converter（//converter 内）
 #   - OssDataManager（//data_manager/oss 内）
 #
-# 各 package の visibility に `//wai:__pkg__` を追加する必要がある。
-# TODO(W1-B): 以下 4 package の BUILD.bazel に visibility を追加してから
-# このターゲットを実体化する。
+# upstream 4 package の visibility には `//wai:__pkg__` を追加済み。
 mozc_cc_library(
     name = "mozc_wai_engine_deps",
     deps = [
@@ -29,10 +24,7 @@ mozc_cc_library(
     ],
 )
 
-# 単一の静的ライブラリ libmozc_wai.a を生成する。
-# Bazel 7+ の cc_static_library を使用（Mozc は Bazel 9.0.2）。
-# TODO(W1-B): mozc_wai_engine_deps の visibility 解決後に有効化する。
-# cc_static_library(
-#     name = "libmozc_wai",
-#     deps = [":mozc_wai_engine_deps"],
-# )
+# 単一の静的ライブラリ libmozc_wai.a は `:mozc_wai_engine_deps` をビルドした後、
+# release.yml 内で `libtool -static` を使って bazel-bin の .a を結合して生成する。
+# （Bazel 9 で `cc_static_library` が削除されたため、Bazel ルールではなく
+#   ワークフロー側で .a を組み立てる）

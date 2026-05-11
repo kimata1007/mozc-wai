@@ -2,9 +2,6 @@
 # GitHub Releases にアップロードする。
 #
 # 設計書: <owner>/WritingAssistantIME docs/design-doc/202605-006_mozc-integration §2.5.5
-#
-# 現状はスケルトン段階。upstream の visibility 修正と
-# cc_static_library の有効化が済むまで artifact upload は無効化している。
 
 name: Build and Release WritingAssistantIME Mozc artifact
 
@@ -20,7 +17,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -33,40 +30,68 @@ jobs:
         uses: actions/cache@v5
         with:
           path: src/third_party_cache
-          key: update_deps-macos-skeleton
+          key: update_deps-macos-v1
+          restore-keys: |
+            update_deps-macos-
 
       - name: Resolve Mozc third-party deps
         working-directory: ./src
         run: |
           python3 build_tools/update_deps.py
 
-      - name: Smoke check (skeleton phase)
+      - name: Build engine deps
         working-directory: ./src
         run: |
-          bazelisk info workspace
-          bazelisk query //wai:all
-          echo "Skeleton CI ran. Real artifacts wired up in the next iteration."
+          bazelisk build //wai:mozc_wai_engine_deps --macos_cpus=arm64 --config release_build
 
-      # TODO(W1-B): visibility パッチ適用 + cc_static_library 有効化後にこのステップを使う
-      - name: Build static library
-        if: false
+      - name: Combine object files into libmozc_wai.a
         working-directory: ./src
         run: |
-          bazelisk build //wai:libmozc_wai --macos_cpus=arm64 --config release_build
+          set -euo pipefail
+          # bazel-bin は symlink なので、bazel info から実パスを取る。
+          BIN="$(bazelisk info bazel-bin --macos_cpus=arm64 --config release_build)"
+          echo "==> bazel-bin = ${BIN}"
+          # Bazel 9 の cc_library は .a を出さず _objs/<lib>/*.o のみを出力する。
+          # ここまでに //wai:mozc_wai_engine_deps だけビルドしているので、
+          # bin 配下の .o は engine deps の transitive closure に限定される。
+          # test 関連は engine deps の transitive にないので追加フィルタは不要。
+          find -L "${BIN}" -type f -name "*.o" \
+            | sort -u > /tmp/o_files.txt
+          count=$(wc -l < /tmp/o_files.txt | tr -d ' ')
+          echo "==> Combining ${count} object files"
+          if [ "${count}" -eq 0 ]; then
+            echo "ERROR: no .o files found in ${BIN}"
+            find -L "${BIN}" -maxdepth 3 | head -50
+            exit 1
+          fi
+          xargs libtool -static -o libmozc_wai.a < /tmp/o_files.txt
+          ls -lh libmozc_wai.a
 
-      # TODO(W1-B): 辞書ファイル群を tar.gz に固める
-      - name: Package dictionary
-        if: false
+      - name: Build dictionary dataset
         working-directory: ./src
         run: |
-          bazelisk build //data/dictionary_oss:dictionary_files --config release_build
-          tar czf dictionary.tar.gz -C bazel-bin/data/dictionary_oss .
+          bazelisk build //data_manager/oss:mozc_dataset_for_oss --config release_build
 
-      # TODO(W1-B): 実際にビルドが通ったら有効化
+      - name: Package artifacts
+        working-directory: ./src
+        run: |
+          mkdir -p ../release-artifacts
+          cp libmozc_wai.a ../release-artifacts/
+          tar czf ../release-artifacts/dictionary.tar.gz -C bazel-bin/data_manager/oss mozc.data
+          ls -lh ../release-artifacts/
+
       - name: Upload to Release
-        if: false
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src/bazel-bin/wai/libmozc_wai.a
-            src/dictionary.tar.gz
+            release-artifacts/libmozc_wai.a
+            release-artifacts/dictionary.tar.gz
+
+      - name: Upload as workflow artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mozc-wai-artifacts
+          path: release-artifacts/
+          retention-days: 7

@@ -50,6 +50,7 @@ mozc_cc_library(
     hdrs = ["session.h"],
     visibility = [
         "//evaluation/candidates_diff_checker:__pkg__",
+        "//wai:__pkg__",
     ],
     deps = [
         ":ime_context",

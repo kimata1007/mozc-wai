@@ -517,6 +517,7 @@ mozc_cc_library(
         "//engine:__pkg__",
         "//prediction:__pkg__",
         "//rewriter:__pkg__",
+        "//wai:__pkg__",
     ],
     deps = [
         ":attribute",

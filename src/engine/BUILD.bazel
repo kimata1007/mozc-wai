@@ -345,7 +345,10 @@ mozc_cc_library(
 mozc_cc_library(
     name = "oss_engine_factory",
     hdrs = ["oss_engine_factory.h"],
-    visibility = ["//evaluation:__subpackages__"],
+    visibility = [
+        "//evaluation:__subpackages__",
+        "//wai:__pkg__",
+    ],
     deps = [
         ":engine",
         "//data_manager/oss:oss_data_manager",
